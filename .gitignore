@@ -1,0 +1,15 @@
+# Mac
+.DS_Store
+
+# Node.js
+node_modules/
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# AI tools & Logs
+.gemini/
+.claude/
+*.log

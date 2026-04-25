@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "D2W Diff",
+  "version": "1.0.0",
+  "description": "Figmaデザインを任意のWebページにオーバーレイして比較するツール",
+  "permissions": ["storage", "scripting", "activeTab", "windows"],
+  "host_permissions": ["https://api.figma.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none';"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "D2W Diff",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  }
+}

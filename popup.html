@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D2W Diff</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header (共通) -->
+    <header class="header">
+      <div class="header-title">
+        <img src="icon16.png" width="16" height="16" alt="" style="display:block;flex-shrink:0;">
+        D2W Diff
+      </div>
+      <!-- 設定ボタン: メイン画面でのみ表示 -->
+      <button id="settings-btn" class="header-icon-btn" title="設定" hidden aria-label="設定">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06
+                   a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09
+                   A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83
+                   l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
+                   A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83
+                   l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09
+                   a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83
+                   l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
+                   a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </header>
+
+    <main class="main">
+
+      <!-- ══════════════════════════════════════
+           セットアップ画面 (初回 or 設定変更時)
+           ══════════════════════════════════════ -->
+      <div id="screen-setup" class="screen">
+
+        <p class="screen-desc">
+          Figma Personal Access Token を入力してください。<br>
+          保存後はこの画面は表示されません。
+        </p>
+
+        <section class="section">
+          <label class="label" for="pat-input">Figma PAT</label>
+          <div class="input-row">
+            <input
+              type="password"
+              id="pat-input"
+              class="input"
+              placeholder="figd_xxxxxxxxxxxx"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              aria-describedby="pat-error"
+            >
+            <button id="token-eye" class="icon-btn" type="button"
+                    title="表示 / 非表示" aria-label="トークンの表示切替">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <p id="pat-error" class="field-error" role="alert" hidden></p>
+          <label class="checkbox-label">
+            <input type="checkbox" id="persist-token" aria-describedby="persist-warn">
+            <span class="checkbox-text">
+              ブラウザ終了後も保存する
+              <span class="warn-tag" id="persist-warn" title="ディスクに平文で保存されます">平文保存</span>
+            </span>
+          </label>
+        </section>
+
+        <button id="setup-save-btn" class="primary-btn" type="button">保存して続ける</button>
+
+        <p id="setup-status" class="status" role="status" hidden></p>
+
+        <button id="setup-skip-btn" class="skip-btn" type="button">
+          スキップ（画像アップロードのみ使用）
+        </button>
+
+      </div>
+
+      <!-- ══════════════════════════════════════
+           メイン画面
+           ══════════════════════════════════════ -->
+      <div id="screen-main" class="screen" hidden>
+
+        <!-- ソース切替タブ -->
+        <div class="source-tabs" role="tablist" aria-label="画像ソースの選択">
+          <button id="tab-api" class="source-tab active" type="button"
+                  role="tab" aria-selected="true" aria-controls="panel-api">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            Figma API
+          </button>
+          <button id="tab-upload" class="source-tab" type="button"
+                  role="tab" aria-selected="false" aria-controls="panel-upload">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            画像アップロード
+          </button>
+        </div>
+
+        <!-- ── Figma API パネル ── -->
+        <div id="panel-api" class="source-panel" role="tabpanel" aria-labelledby="tab-api">
+
+          <!-- PAT 未設定時の警告 -->
+          <div id="api-no-token-warn" class="api-warn" hidden>
+            Figma API が設定されていません。<br>
+            ヘッダーの設定ボタンから PAT を登録してください。
+          </div>
+
+          <section class="section">
+            <label class="label" for="url-input">Figma URL</label>
+            <input
+              type="url"
+              id="url-input"
+              class="input"
+              placeholder="https://www.figma.com/design/…?node-id=…"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              aria-describedby="url-error"
+            >
+            <p id="url-error" class="field-error" role="alert" hidden></p>
+          </section>
+
+          <div class="option-item">
+            <label class="label" for="scale-input">取得画質</label>
+            <select id="scale-input" class="select-sm">
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="3">3×</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- ── 画像アップロードパネル ── -->
+        <div id="panel-upload" class="source-panel" role="tabpanel" aria-labelledby="tab-upload" hidden>
+
+          <!-- ドロップゾーン (ファイル未選択時) -->
+          <div id="drop-zone" class="drop-zone" aria-label="画像をドロップするか、ボタンでファイルを選択">
+            <div class="drop-zone-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="drop-zone-text">PNG / JPG / WebP をドロップ</p>
+            <p class="drop-zone-sub">または</p>
+            <button id="file-pick-btn" class="secondary-btn" type="button">ファイルを選択</button>
+            <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp" hidden>
+          </div>
+
+          <!-- プレビュー (ファイル選択後) -->
+          <div id="upload-preview" class="upload-preview" hidden>
+            <img id="preview-img" class="preview-img" alt="">
+            <div class="upload-info">
+              <span id="upload-filename" class="upload-filename"></span>
+              <button id="upload-clear-btn" class="ghost-btn upload-clear" type="button"
+                      title="クリア" aria-label="アップロード画像をクリア">✕</button>
+            </div>
+          </div>
+
+          <p id="upload-error" class="field-error" role="alert" hidden></p>
+
+        </div>
+
+        <!-- ── 共通オプション ── -->
+        <div class="option-item">
+          <label class="label" for="scalemode-input">スケールモード</label>
+          <select id="scalemode-input" class="select-sm">
+            <option value="actual" selected>実寸 (1:1)</option>
+            <option value="fit-width">幅に合わせる</option>
+            <option value="fit-height">高さに合わせる</option>
+          </select>
+        </div>
+
+        <button id="load-btn" class="primary-btn" type="button">オーバーレイを読み込む</button>
+
+        <p id="main-status" class="status" role="status" hidden></p>
+
+        <div class="footer-actions">
+          <button id="clear-token-btn" class="ghost-btn" type="button">API設定を変更</button>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- フッター著作権表示 -->
+    <footer class="copyright">ver.01.0.0</footer>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
