@@ -463,15 +463,32 @@ function renderUrlList() {
   urlListHeader.hidden = filled.length === 0;
 }
 
+function makePlaceholder(url) {
+  const div = document.createElement('div');
+  div.className = 'url-item-placeholder';
+  const span = document.createElement('span');
+  span.className = 'url-item-placeholder-text';
+  span.textContent = urlLabel(url);
+  div.appendChild(span);
+  return div;
+}
+
 function createUrlListItem(slot) {
-  const { url } = urlSlotData[slot];
+  const { url, imageUrl } = urlSlotData[slot];
   const item = document.createElement('div');
   item.className = 'url-item' + (slot === activeUrlSlot ? ' active' : '');
   item.title = url;
 
-  const label = document.createElement('span');
-  label.className   = 'url-item-label';
-  label.textContent = urlLabel(url);
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.className = 'url-item-thumb';
+    img.src = imageUrl;
+    img.alt = '';
+    img.addEventListener('error', () => img.replaceWith(makePlaceholder(url)), { once: true });
+    item.appendChild(img);
+  } else {
+    item.appendChild(makePlaceholder(url));
+  }
 
   const delBtn = document.createElement('button');
   delBtn.className = 'url-item-del';
@@ -480,7 +497,6 @@ function createUrlListItem(slot) {
   delBtn.textContent = '✕';
   delBtn.addEventListener('click', e => { e.stopPropagation(); deleteUrlSlot(slot); });
 
-  item.appendChild(label);
   item.appendChild(delBtn);
   item.addEventListener('click', () => switchToUrlSlot(slot));
   return item;
@@ -499,7 +515,7 @@ async function initUrlSlots() {
 
     // last_figma_url をスロット1へ一回限り移行
     if (!URL_SLOT_NUMS.some(i => urlSlotData[i] !== null) && stored.last_figma_url) {
-      urlSlotData[1] = { url: stored.last_figma_url };
+      urlSlotData[1] = { url: stored.last_figma_url, imageUrl: null };
       await chrome.storage.local.set({ [figmaUrlSlotKey(1)]: urlSlotData[1] });
     }
 
@@ -570,10 +586,10 @@ async function saveUrlSlot() {
     return;
   }
 
-  urlSlotData[emptySlot] = { url };
+  urlSlotData[emptySlot] = { url, imageUrl: null };
   activeUrlSlot = emptySlot;
   await chrome.storage.local.set({
-    [figmaUrlSlotKey(emptySlot)]: { url },
+    [figmaUrlSlotKey(emptySlot)]: { url, imageUrl: null },
     [ACTIVE_URL_SLOT_KEY]: emptySlot,
   });
   renderUrlList();
@@ -707,10 +723,20 @@ async function loadFromApi(tab, scaleMode) {
     }
 
     // 5. 適用成功後に設定を保存
-    await chrome.storage.local.set({
+    const updates = {
       last_figma_url: urlValue,
       [settingsKey]:  { ...prev, scale, scaleMode },
-    });
+    };
+
+    // マッチするURLスロットにサムネイル用 imageUrl を保存
+    const matchedSlot = URL_SLOT_NUMS.find(i => urlSlotData[i]?.url === urlValue);
+    if (matchedSlot) {
+      urlSlotData[matchedSlot] = { ...urlSlotData[matchedSlot], imageUrl: fetchResp.imageUrl };
+      updates[figmaUrlSlotKey(matchedSlot)] = urlSlotData[matchedSlot];
+    }
+
+    await chrome.storage.local.set(updates);
+    if (matchedSlot) renderUrlList();
 
     showStatus(mainStatus, 'オーバーレイを適用しました！ Alt+D でトグルできます。', true);
 
