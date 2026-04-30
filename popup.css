@@ -390,52 +390,7 @@ body {
 }
 .secondary-btn:hover { background: #dbeafe; border-color: #4b5563; }
 
-/* ============================================================
-   Upload preview card
-   ============================================================ */
-.upload-preview {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #f0f5ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 9px;
-  padding: 8px 10px;
-}
 
-.preview-img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  border-radius: 5px;
-  background: #e8f0fe;
-  flex-shrink: 0;
-}
-
-.upload-info {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  min-width: 0;
-}
-
-.upload-filename {
-  font-size: 11px;
-  color: #1f2937;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.ghost-btn.upload-clear {
-  flex-shrink: 0;
-  font-size: 12px;
-  padding: 2px 6px;
-}
 
 /* ============================================================
    セットアップスキップボタン
@@ -507,7 +462,33 @@ body {
   flex-direction: column;
 }
 
-.image-list.list .image-item-thumb { height: 72px; }
+.image-list.list .image-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 32px 6px 8px;
+}
+
+.image-list.list .image-item-thumb {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.image-item-name {
+  display: none;
+  font-size: 11px;
+  color: #374151;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.image-list.list .image-item-name { display: block; }
 
 /* ── アイテム ── */
 .image-item {

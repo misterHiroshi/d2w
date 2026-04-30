@@ -321,6 +321,10 @@ function createImageListItem(slot) {
   thumb.src = dataUrl;
   thumb.alt = filename;
 
+  const name = document.createElement('span');
+  name.className = 'image-item-name';
+  name.textContent = filename;
+
   const delBtn = document.createElement('button');
   delBtn.className = 'image-item-del';
   delBtn.type = 'button';
@@ -329,6 +333,7 @@ function createImageListItem(slot) {
   delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteSlot(slot); });
 
   item.appendChild(thumb);
+  item.appendChild(name);
   item.appendChild(delBtn);
   item.addEventListener('click', () => switchToSlot(slot));
 
