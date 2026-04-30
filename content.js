@@ -1075,6 +1075,16 @@ function initFigmaOverlay() {
       return true;
     }
 
+    if (msg.type === 'CLEAR_IMAGE') {
+      state.imageUrl = null;
+      state.visible  = false;
+      overlayImg.style.display = 'none';
+      overlayImg.src = '';
+      syncPanelToState();
+      sendResponse({ ok: true });
+      return true;
+    }
+
     return false;
   });
 

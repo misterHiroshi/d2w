@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 const PAT_REGEX       = /^figd_[A-Za-z0-9_-]{20,}$/;
 const FIGMA_URL_REGEX = /^https:\/\/(www\.)?figma\.com\/(file|design|proto)\/[a-zA-Z0-9_-]+.*[?&]node-id=/;
-const SETTINGS_PREFIX = 'overlay_settings_';
+const SETTINGS_PREFIX  = 'overlay_settings_';
 const SLOT_COUNT       = 3;
 const ACTIVE_SLOT_KEY  = 'active_upload_slot';
 const VIEW_MODE_KEY    = 'view_mode';
@@ -14,6 +14,12 @@ function uploadSlotKey(slot) { return SETTINGS_PREFIX + '__upload_slot_' + slot 
 function imageSlotKey(slot)  { return 'image_slot_' + slot; }
 
 const SLOT_NUMS = Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
+
+// Figma URL スロット
+const URL_SLOT_COUNT      = 3;
+const ACTIVE_URL_SLOT_KEY = 'active_figma_url_slot';
+function figmaUrlSlotKey(slot) { return 'figma_url_slot_' + slot; }
+const URL_SLOT_NUMS = Array.from({ length: URL_SLOT_COUNT }, (_, i) => i + 1);
 
 // アップロード制限
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -44,6 +50,9 @@ const panelUpload      = document.getElementById('panel-upload');
 
 // API パネル
 const apiNoTokenWarn   = document.getElementById('api-no-token-warn');
+const urlListHeader    = document.getElementById('url-list-header');
+const urlList          = document.getElementById('url-list');
+const urlSaveBtn       = document.getElementById('url-save-btn');
 const urlInput         = document.getElementById('url-input');
 const urlError         = document.getElementById('url-error');
 const scaleInput       = document.getElementById('scale-input');
@@ -72,6 +81,13 @@ let activeSlot       = 1;
 let viewMode         = 'grid'; // 'grid' | 'list'
 let slotsInitialized = false;
 const slotData = Object.fromEntries(SLOT_NUMS.map(i => [i, null])); // { dataUrl, filename } or null
+
+// ---------------------------------------------------------------------------
+// Figma URL スロット状態
+// ---------------------------------------------------------------------------
+let activeUrlSlot       = 1;
+let urlSlotsInitialized = false;
+const urlSlotData = Object.fromEntries(URL_SLOT_NUMS.map(i => [i, null])); // { url } or null
 
 // ---------------------------------------------------------------------------
 // 画面切替
@@ -112,7 +128,10 @@ function setActiveSource(src) {
   }
 }
 
-tabApiBtn.addEventListener('click', () => setActiveSource('api'));
+tabApiBtn.addEventListener('click', async () => {
+  setActiveSource('api');
+  await initUrlSlots();
+});
 
 tabUploadBtn.addEventListener('click', async () => {
   setActiveSource('upload');
@@ -203,11 +222,9 @@ async function init() {
 
 // メイン画面への遷移。hasToken=true なら警告を隠す、false なら表示する
 async function transitionToMain(hasToken) {
-  try {
-    await loadMainScreenDefaults();
-  } catch { /* ストレージ取得失敗時はデフォルト値のまま続行 */ }
   apiNoTokenWarn.hidden = !!hasToken;
   showScreen('main');
+  await initUrlSlots();
 }
 
 async function loadMainScreenDefaults() {
@@ -327,18 +344,23 @@ function createImageListItem(slot) {
 }
 
 async function deleteSlot(slot) {
+  const wasActive = slot === activeSlot;
   slotData[slot] = null;
-  await chrome.storage.local.remove([imageSlotKey(slot), uploadSlotKey(slot)]);
 
-  if (activeSlot === slot) {
+  if (wasActive) {
     const next = SLOT_NUMS.find(i => slotData[i] !== null);
-    if (next) {
-      activeSlot = next;
-      await chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: next });
-    } else {
-      activeSlot = 1;
-      await chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: 1 });
-    }
+    activeSlot = next ?? 1;
+
+    const [[tab]] = await Promise.all([
+      chrome.tabs.query({ active: true, currentWindow: true }),
+      Promise.all([
+        chrome.storage.local.remove([imageSlotKey(slot), uploadSlotKey(slot)]),
+        chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: activeSlot }),
+      ]),
+    ]);
+    if (tab?.id) msgTab(tab.id, { type: 'CLEAR_IMAGE' }).catch(() => {});
+  } else {
+    await chrome.storage.local.remove([imageSlotKey(slot), uploadSlotKey(slot)]);
   }
 
   clearFieldError(uploadError);
@@ -348,6 +370,9 @@ async function deleteSlot(slot) {
 function nextEmptySlot() {
   return SLOT_NUMS.find(i => slotData[i] === null);
 }
+
+// ── Figma URL 保存ボタン ──
+urlSaveBtn.addEventListener('click', () => saveUrlSlot());
 
 // ── ファイル選択ボタン ──
 filePickBtn.addEventListener('click', (e) => {
@@ -418,6 +443,140 @@ async function switchToSlot(slot) {
 
   renderImageList();
   await loadUploadSettings();
+}
+
+// ---------------------------------------------------------------------------
+// Figma URL スロット管理
+// ---------------------------------------------------------------------------
+function urlLabel(url) {
+  const m    = url.match(/figma\.com\/(?:file|design|proto)\/([^/?]+)/);
+  const key  = m ? m[1].slice(0, 10) : '';
+  const nodeM = url.match(/node-id=([^&]+)/);
+  const node = nodeM ? decodeURIComponent(nodeM[1]) : '';
+  return key ? `${key}… (${node})` : url.slice(0, 42);
+}
+
+function renderUrlList() {
+  urlList.innerHTML = '';
+  const filled = URL_SLOT_NUMS.filter(i => urlSlotData[i] !== null);
+  filled.forEach(slot => urlList.appendChild(createUrlListItem(slot)));
+  urlListHeader.hidden = filled.length === 0;
+}
+
+function createUrlListItem(slot) {
+  const { url } = urlSlotData[slot];
+  const item = document.createElement('div');
+  item.className = 'url-item' + (slot === activeUrlSlot ? ' active' : '');
+  item.title = url;
+
+  const label = document.createElement('span');
+  label.className   = 'url-item-label';
+  label.textContent = urlLabel(url);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'url-item-del';
+  delBtn.type = 'button';
+  delBtn.setAttribute('aria-label', 'URLを削除');
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', e => { e.stopPropagation(); deleteUrlSlot(slot); });
+
+  item.appendChild(label);
+  item.appendChild(delBtn);
+  item.addEventListener('click', () => switchToUrlSlot(slot));
+  return item;
+}
+
+async function initUrlSlots() {
+  if (urlSlotsInitialized) return;
+  urlSlotsInitialized = true;
+  try {
+    const stored = await chrome.storage.local.get([
+      ACTIVE_URL_SLOT_KEY,
+      'last_figma_url',
+      ...URL_SLOT_NUMS.map(figmaUrlSlotKey),
+    ]);
+    URL_SLOT_NUMS.forEach(i => { urlSlotData[i] = stored[figmaUrlSlotKey(i)] ?? null; });
+
+    // last_figma_url をスロット1へ一回限り移行
+    if (!URL_SLOT_NUMS.some(i => urlSlotData[i] !== null) && stored.last_figma_url) {
+      urlSlotData[1] = { url: stored.last_figma_url };
+      await chrome.storage.local.set({ [figmaUrlSlotKey(1)]: urlSlotData[1] });
+    }
+
+    const saved = stored[ACTIVE_URL_SLOT_KEY];
+    activeUrlSlot = (saved >= 1 && saved <= URL_SLOT_COUNT && urlSlotData[saved])
+      ? saved
+      : URL_SLOT_NUMS.find(i => urlSlotData[i] !== null) ?? 1;
+
+    renderUrlList();
+    if (urlSlotData[activeUrlSlot]) {
+      urlInput.value = urlSlotData[activeUrlSlot].url;
+      await restoreUrlSettings(urlSlotData[activeUrlSlot].url);
+    }
+  } catch (e) {
+    urlSlotsInitialized = false;
+    throw e;
+  }
+}
+
+async function switchToUrlSlot(slot) {
+  if (slot === activeUrlSlot) return;
+  activeUrlSlot = slot;
+  await chrome.storage.local.set({ [ACTIVE_URL_SLOT_KEY]: slot });
+  urlInput.value = urlSlotData[slot].url;
+  clearFieldError(urlError);
+  mainStatus.hidden = true;
+  renderUrlList();
+  await restoreUrlSettings(urlSlotData[slot].url);
+}
+
+async function deleteUrlSlot(slot) {
+  urlSlotData[slot] = null;
+
+  if (activeUrlSlot === slot) {
+    const next = URL_SLOT_NUMS.find(i => urlSlotData[i] !== null);
+    activeUrlSlot = next ?? 1;
+    urlInput.value = urlSlotData[activeUrlSlot]?.url ?? '';
+
+    const [[tab]] = await Promise.all([
+      chrome.tabs.query({ active: true, currentWindow: true }),
+      Promise.all([
+        chrome.storage.local.remove(figmaUrlSlotKey(slot)),
+        chrome.storage.local.set({ [ACTIVE_URL_SLOT_KEY]: activeUrlSlot }),
+      ]),
+    ]);
+    if (tab?.id) msgTab(tab.id, { type: 'CLEAR_IMAGE' }).catch(() => {});
+  } else {
+    await chrome.storage.local.remove(figmaUrlSlotKey(slot));
+  }
+
+  clearFieldError(urlError);
+  renderUrlList();
+}
+
+async function saveUrlSlot() {
+  const url = urlInput.value.trim();
+  const err = validateUrl(url);
+  if (err) { showFieldError(urlError, err); urlInput.classList.add('invalid'); return; }
+  urlInput.classList.remove('invalid');
+
+  // 既存スロットに同一 URL があれば選択に切り替えるだけ
+  const existing = URL_SLOT_NUMS.find(i => urlSlotData[i]?.url === url);
+  if (existing) { await switchToUrlSlot(existing); return; }
+
+  const emptySlot = URL_SLOT_NUMS.find(i => urlSlotData[i] === null);
+  if (!emptySlot) {
+    showFieldError(urlError, `スロットが満杯です（最大${URL_SLOT_COUNT}件）。不要な URL を削除してください。`);
+    return;
+  }
+
+  urlSlotData[emptySlot] = { url };
+  activeUrlSlot = emptySlot;
+  await chrome.storage.local.set({
+    [figmaUrlSlotKey(emptySlot)]: { url },
+    [ACTIVE_URL_SLOT_KEY]: emptySlot,
+  });
+  renderUrlList();
 }
 
 // ---------------------------------------------------------------------------
