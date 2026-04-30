@@ -6,7 +6,14 @@
 const PAT_REGEX       = /^figd_[A-Za-z0-9_-]{20,}$/;
 const FIGMA_URL_REGEX = /^https:\/\/(www\.)?figma\.com\/(file|design|proto)\/[a-zA-Z0-9_-]+.*[?&]node-id=/;
 const SETTINGS_PREFIX = 'overlay_settings_';
-const UPLOAD_KEY      = SETTINGS_PREFIX + '__upload__';
+const SLOT_COUNT       = 3;
+const ACTIVE_SLOT_KEY  = 'active_upload_slot';
+const VIEW_MODE_KEY    = 'view_mode';
+
+function uploadSlotKey(slot) { return SETTINGS_PREFIX + '__upload_slot_' + slot + '__'; }
+function imageSlotKey(slot)  { return 'image_slot_' + slot; }
+
+const SLOT_NUMS = Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
 
 // アップロード制限
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -42,13 +49,13 @@ const urlError         = document.getElementById('url-error');
 const scaleInput       = document.getElementById('scale-input');
 
 // アップロードパネル
+const imageListHeader  = document.getElementById('image-list-header');
+const viewGridBtn      = document.getElementById('view-grid-btn');
+const viewListBtn      = document.getElementById('view-list-btn');
+const imageList        = document.getElementById('image-list');
 const dropZone         = document.getElementById('drop-zone');
 const filePickBtn      = document.getElementById('file-pick-btn');
 const fileInput        = document.getElementById('file-input');
-const uploadPreview    = document.getElementById('upload-preview');
-const previewImg       = document.getElementById('preview-img');
-const uploadFilenameEl = document.getElementById('upload-filename');
-const uploadClearBtn   = document.getElementById('upload-clear-btn');
 const uploadError      = document.getElementById('upload-error');
 
 // 共通オプション / アクション
@@ -61,8 +68,10 @@ const clearTokenBtn    = document.getElementById('clear-token-btn');
 // アップロード状態
 // ---------------------------------------------------------------------------
 let activeSource     = 'api';  // 'api' | 'upload'
-let uploadedDataUrl  = null;
-let uploadedFilename = null;
+let activeSlot       = 1;
+let viewMode         = 'grid'; // 'grid' | 'list'
+let slotsInitialized = false;
+const slotData = Object.fromEntries(SLOT_NUMS.map(i => [i, null])); // { dataUrl, filename } or null
 
 // ---------------------------------------------------------------------------
 // 画面切替
@@ -107,6 +116,7 @@ tabApiBtn.addEventListener('click', () => setActiveSource('api'));
 
 tabUploadBtn.addEventListener('click', async () => {
   setActiveSource('upload');
+  await initSlots();
   await loadUploadSettings();
 });
 
@@ -218,8 +228,9 @@ async function restoreUrlSettings(figmaUrl) {
 }
 
 async function loadUploadSettings() {
-  const stored = await chrome.storage.local.get(UPLOAD_KEY);
-  const s      = stored[UPLOAD_KEY];
+  const key    = uploadSlotKey(activeSlot);
+  const stored = await chrome.storage.local.get(key);
+  const s      = stored[key];
   if (!s) return;
   if (s.scaleMode) scalemodeInput.value = s.scaleMode;
 }
@@ -239,19 +250,31 @@ function handleFile(file) {
     return;
   }
 
+  const targetSlot = nextEmptySlot();
+  if (!targetSlot) {
+    showFieldError(uploadError, `スロットが満杯です（最大${SLOT_COUNT}枚）。`);
+    return;
+  }
+
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     const result = e.target.result;
-    // MIME タイプを確認（base64 data URL のみ受け付ける）
     if (typeof result !== 'string' ||
         !/^data:image\/(png|jpeg|webp);base64,/.test(result)) {
       showFieldError(uploadError, '画像の読み込みに失敗しました。');
       return;
     }
-    uploadedDataUrl  = result;
-    uploadedFilename = file.name;
-    showUploadPreview(result, file.name);
+
+    slotData[targetSlot] = { dataUrl: result, filename: file.name };
+    activeSlot = targetSlot;
+    await chrome.storage.local.set({
+      [imageSlotKey(targetSlot)]: slotData[targetSlot],
+      [ACTIVE_SLOT_KEY]: targetSlot,
+    });
+
+    fileInput.value   = '';
     mainStatus.hidden = true;
+    renderImageList();
   };
   reader.onerror = () => {
     showFieldError(uploadError, '画像の読み込みに失敗しました。');
@@ -259,22 +282,71 @@ function handleFile(file) {
   reader.readAsDataURL(file);
 }
 
-function showUploadPreview(dataUrl, filename) {
-  previewImg.src               = dataUrl;
-  uploadFilenameEl.textContent = filename;
-  dropZone.hidden              = true;
-  uploadPreview.hidden         = false;
+function renderImageList() {
+  imageList.innerHTML = '';
+  const filled = SLOT_NUMS.filter(i => slotData[i] !== null);
+  filled.forEach(slot => imageList.appendChild(createImageListItem(slot)));
+  imageList.className    = 'image-list ' + viewMode;
+  imageListHeader.hidden = filled.length === 0;
+  dropZone.hidden        = filled.length >= SLOT_COUNT;
 }
 
-function clearUploadState() {
-  uploadedDataUrl              = null;
-  uploadedFilename             = null;
-  previewImg.src               = '';
-  uploadFilenameEl.textContent = '';
-  dropZone.hidden              = false;
-  uploadPreview.hidden         = true;
-  fileInput.value              = '';
+function setViewMode(mode) {
+  viewMode = mode;
+  viewGridBtn.classList.toggle('active', mode === 'grid');
+  viewListBtn.classList.toggle('active', mode === 'list');
+  chrome.storage.local.set({ [VIEW_MODE_KEY]: mode });
+  renderImageList();
+}
+
+viewGridBtn.addEventListener('click', () => setViewMode('grid'));
+viewListBtn.addEventListener('click', () => setViewMode('list'));
+
+function createImageListItem(slot) {
+  const { dataUrl, filename } = slotData[slot];
+  const item = document.createElement('div');
+  item.className = 'image-item' + (slot === activeSlot ? ' active' : '');
+
+  const thumb = document.createElement('img');
+  thumb.className = 'image-item-thumb';
+  thumb.src = dataUrl;
+  thumb.alt = filename;
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'image-item-del';
+  delBtn.type = 'button';
+  delBtn.setAttribute('aria-label', '画像を削除');
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteSlot(slot); });
+
+  item.appendChild(thumb);
+  item.appendChild(delBtn);
+  item.addEventListener('click', () => switchToSlot(slot));
+
+  return item;
+}
+
+async function deleteSlot(slot) {
+  slotData[slot] = null;
+  await chrome.storage.local.remove([imageSlotKey(slot), uploadSlotKey(slot)]);
+
+  if (activeSlot === slot) {
+    const next = SLOT_NUMS.find(i => slotData[i] !== null);
+    if (next) {
+      activeSlot = next;
+      await chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: next });
+    } else {
+      activeSlot = 1;
+      await chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: 1 });
+    }
+  }
+
   clearFieldError(uploadError);
+  renderImageList();
+}
+
+function nextEmptySlot() {
+  return SLOT_NUMS.find(i => slotData[i] === null);
 }
 
 // ── ファイル選択ボタン ──
@@ -308,8 +380,45 @@ dropZone.addEventListener('drop', (e) => {
   if (file) handleFile(file);
 });
 
-// ── アップロードクリア ──
-uploadClearBtn.addEventListener('click', clearUploadState);
+// ---------------------------------------------------------------------------
+// スロット管理
+// ---------------------------------------------------------------------------
+async function initSlots() {
+  if (slotsInitialized) return;
+  slotsInitialized = true;
+
+  try {
+    const stored = await chrome.storage.local.get([ACTIVE_SLOT_KEY, VIEW_MODE_KEY, ...SLOT_NUMS.map(imageSlotKey)]);
+
+    SLOT_NUMS.forEach(i => { slotData[i] = stored[imageSlotKey(i)] ?? null; });
+
+    const saved = stored[ACTIVE_SLOT_KEY];
+    if (saved >= 1 && saved <= SLOT_COUNT && slotData[saved]) {
+      activeSlot = saved;
+    } else {
+      activeSlot = SLOT_NUMS.find(i => slotData[i] !== null) ?? 1;
+    }
+
+    if (stored[VIEW_MODE_KEY] === 'list' || stored[VIEW_MODE_KEY] === 'grid') {
+      viewMode = stored[VIEW_MODE_KEY];
+    }
+    setViewMode(viewMode);
+  } catch (e) {
+    slotsInitialized = false;
+    throw e;
+  }
+}
+
+async function switchToSlot(slot) {
+  if (slot === activeSlot) return;
+  activeSlot = slot;
+  await chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: slot });
+  clearFieldError(uploadError);
+  mainStatus.hidden = true;
+
+  renderImageList();
+  await loadUploadSettings();
+}
 
 // ---------------------------------------------------------------------------
 // セットアップ画面: PAT 保存
@@ -457,7 +566,9 @@ async function loadFromApi(tab, scaleMode) {
 async function loadFromUpload(tab, scaleMode) {
   clearFieldError(uploadError);
 
-  if (!uploadedDataUrl) {
+  const slot       = activeSlot;
+  const activeData = slotData[slot];
+  if (!activeData) {
     showFieldError(uploadError, '画像をアップロードしてください。');
     return;
   }
@@ -466,8 +577,9 @@ async function loadFromUpload(tab, scaleMode) {
 
   try {
     // 1. アップロード用の保存済み設定を取得
-    const existing = await chrome.storage.local.get(UPLOAD_KEY);
-    const prev     = existing[UPLOAD_KEY] ?? {};
+    const slotSettingsKey = uploadSlotKey(slot);
+    const existing = await chrome.storage.local.get(slotSettingsKey);
+    const prev     = existing[slotSettingsKey] ?? {};
 
     // 2. コンテンツスクリプトを注入
     try {
@@ -480,7 +592,7 @@ async function loadFromUpload(tab, scaleMode) {
     // 3. SET_IMAGE を data URL で送信 (scale=1: 実寸として扱う)
     const setResp = await msgTab(tab.id, {
       type:           'SET_IMAGE',
-      imageUrl:       uploadedDataUrl,
+      imageUrl:       activeData.dataUrl,
       figmaUrl:       null,
       scale:          1,
       scaleMode,
@@ -498,7 +610,7 @@ async function loadFromUpload(tab, scaleMode) {
     }
 
     // 4. 適用成功後に設定を保存
-    await chrome.storage.local.set({ [UPLOAD_KEY]: { ...prev, scaleMode } });
+    await chrome.storage.local.set({ [uploadSlotKey(slot)]: { ...prev, scaleMode } });
 
     showStatus(mainStatus, 'オーバーレイを適用しました！ Alt+D でトグルできます。', true);
 

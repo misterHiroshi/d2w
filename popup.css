@@ -456,6 +456,110 @@ body {
 .skip-btn:hover { color: #374151; }
 
 /* ============================================================
+   Image list (upload slots)
+   ============================================================ */
+
+/* ── ヘッダー & 表示切替 ── */
+.image-list-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: #f0f5ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.view-btn:hover { color: #374151; background: #e8f0fe; }
+.view-btn.active { background: #dbeafe; color: #1d4ed8; }
+
+/* ── リスト共通 ── */
+.image-list { gap: 4px; }
+
+/* ── グリッドモード ── */
+.image-list.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.image-list.grid .image-item-thumb { height: 72px; }
+
+/* ── リストモード ── */
+.image-list.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.image-list.list .image-item-thumb { height: 72px; }
+
+/* ── アイテム ── */
+.image-item {
+  position: relative;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #f0f5ff;
+  overflow: hidden;
+  transition: border-color .15s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.image-item:hover { border-color: #93c5fd; }
+.image-item.active { border-color: #1d4ed8; box-shadow: 0 0 0 1px #1d4ed8; }
+
+.image-item-thumb {
+  display: block;
+  width: 100%;
+  object-fit: contain;
+  background: #e8f0fe;
+}
+
+/* ✕ ボタン: ホバー時のみ表示 */
+.image-item-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,.5);
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s, background .15s;
+}
+.image-item:hover .image-item-del {
+  opacity: 1;
+  pointer-events: auto;
+}
+.image-item-del:hover { background: rgba(239,68,68,.9); }
+
+/* ============================================================
    API 未設定警告バナー
    ============================================================ */
 .api-warn {
