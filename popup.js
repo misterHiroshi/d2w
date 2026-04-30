@@ -52,6 +52,7 @@ const panelUpload      = document.getElementById('panel-upload');
 const apiNoTokenWarn   = document.getElementById('api-no-token-warn');
 const urlListHeader    = document.getElementById('url-list-header');
 const urlList          = document.getElementById('url-list');
+const urlClearBtn      = document.getElementById('url-clear-btn');
 const urlSaveBtn       = document.getElementById('url-save-btn');
 const urlInput         = document.getElementById('url-input');
 const urlError         = document.getElementById('url-error');
@@ -88,6 +89,10 @@ const slotData = Object.fromEntries(SLOT_NUMS.map(i => [i, null])); // { dataUrl
 let activeUrlSlot       = 1;
 let urlSlotsInitialized = false;
 const urlSlotData = Object.fromEntries(URL_SLOT_NUMS.map(i => [i, null])); // { url, imageUrl } or null
+
+// 現在オーバーレイとして表示中のスロット／URL（削除時の消去判定用）
+let loadedUploadSlot = null;
+let loadedFigmaUrl   = null;
 
 // ---------------------------------------------------------------------------
 // 画面切替
@@ -340,22 +345,32 @@ function createImageListItem(slot) {
   return item;
 }
 
+async function removeSlotAndMaybeClear(wasDisplayed, removeArg, setObj) {
+  if (wasDisplayed) {
+    const [[tab]] = await Promise.all([
+      chrome.tabs.query({ active: true, currentWindow: true }),
+      Promise.all([chrome.storage.local.remove(removeArg), chrome.storage.local.set(setObj)]),
+    ]);
+    if (tab?.id) msgTab(tab.id, { type: 'CLEAR_IMAGE' }).catch(() => {});
+  } else {
+    await Promise.all([chrome.storage.local.remove(removeArg), chrome.storage.local.set(setObj)]);
+  }
+}
+
 async function deleteSlot(slot) {
-  const wasActive = slot === activeSlot;
+  const wasActive    = slot === activeSlot;
+  const wasDisplayed = slot === loadedUploadSlot;
   slotData[slot] = null;
+  if (wasDisplayed) loadedUploadSlot = null;
 
   if (wasActive) {
     const next = SLOT_NUMS.find(i => slotData[i] !== null);
     activeSlot = next ?? 1;
-
-    const [[tab]] = await Promise.all([
-      chrome.tabs.query({ active: true, currentWindow: true }),
-      Promise.all([
-        chrome.storage.local.remove([imageSlotKey(slot), uploadSlotKey(slot)]),
-        chrome.storage.local.set({ [ACTIVE_SLOT_KEY]: activeSlot }),
-      ]),
-    ]);
-    if (tab?.id) msgTab(tab.id, { type: 'CLEAR_IMAGE' }).catch(() => {});
+    await removeSlotAndMaybeClear(
+      wasDisplayed,
+      [imageSlotKey(slot), uploadSlotKey(slot)],
+      { [ACTIVE_SLOT_KEY]: activeSlot },
+    );
   } else {
     await chrome.storage.local.remove([imageSlotKey(slot), uploadSlotKey(slot)]);
   }
@@ -367,6 +382,14 @@ async function deleteSlot(slot) {
 function nextEmptySlot() {
   return SLOT_NUMS.find(i => slotData[i] === null);
 }
+
+// ── Figma URL クリアボタン ──
+urlClearBtn.addEventListener('click', () => {
+  urlInput.value = '';
+  clearFieldError(urlError);
+  urlInput.classList.remove('invalid');
+  urlInput.focus();
+});
 
 // ── Figma URL 保存ボタン ──
 urlSaveBtn.addEventListener('click', () => saveUrlSlot());
@@ -544,21 +567,19 @@ async function switchToUrlSlot(slot) {
 }
 
 async function deleteUrlSlot(slot) {
+  const wasDisplayed = loadedFigmaUrl !== null && urlSlotData[slot]?.url === loadedFigmaUrl;
   urlSlotData[slot] = null;
+  if (wasDisplayed) loadedFigmaUrl = null;
 
   if (activeUrlSlot === slot) {
     const next = URL_SLOT_NUMS.find(i => urlSlotData[i] !== null);
     activeUrlSlot = next ?? 1;
     urlInput.value = urlSlotData[activeUrlSlot]?.url ?? '';
-
-    const [[tab]] = await Promise.all([
-      chrome.tabs.query({ active: true, currentWindow: true }),
-      Promise.all([
-        chrome.storage.local.remove(figmaUrlSlotKey(slot)),
-        chrome.storage.local.set({ [ACTIVE_URL_SLOT_KEY]: activeUrlSlot }),
-      ]),
-    ]);
-    if (tab?.id) msgTab(tab.id, { type: 'CLEAR_IMAGE' }).catch(() => {});
+    await removeSlotAndMaybeClear(
+      wasDisplayed,
+      figmaUrlSlotKey(slot),
+      { [ACTIVE_URL_SLOT_KEY]: activeUrlSlot },
+    );
   } else {
     await chrome.storage.local.remove(figmaUrlSlotKey(slot));
   }
@@ -665,6 +686,16 @@ loadBtn.addEventListener('click', async () => {
   }
 });
 
+async function injectContentScript(tabId) {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    return true;
+  } catch (injErr) {
+    showStatus(mainStatus, `このページには注入できません: ${injErr.message}`, false);
+    return false;
+  }
+}
+
 // ── Figma API から読み込み ──
 async function loadFromApi(tab, scaleMode) {
   clearFieldError(urlError);
@@ -692,12 +723,7 @@ async function loadFromApi(tab, scaleMode) {
     const prev        = existing[settingsKey] ?? {};
 
     // 3. コンテンツスクリプトを注入
-    try {
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    } catch (injErr) {
-      showStatus(mainStatus, `このページには注入できません: ${injErr.message}`, false);
-      return;
-    }
+    if (!await injectContentScript(tab.id)) return;
 
     // 4. SET_IMAGE を送信
     const setResp = await msgTab(tab.id, {
@@ -734,6 +760,8 @@ async function loadFromApi(tab, scaleMode) {
 
     await chrome.storage.local.set(updates);
     if (matchedSlot) renderUrlList();
+    loadedFigmaUrl   = urlValue;
+    loadedUploadSlot = null;
 
     showStatus(mainStatus, 'オーバーレイを適用しました！ Alt+D でトグルできます。', true);
 
@@ -764,12 +792,7 @@ async function loadFromUpload(tab, scaleMode) {
     const prev     = existing[slotSettingsKey] ?? {};
 
     // 2. コンテンツスクリプトを注入
-    try {
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    } catch (injErr) {
-      showStatus(mainStatus, `このページには注入できません: ${injErr.message}`, false);
-      return;
-    }
+    if (!await injectContentScript(tab.id)) return;
 
     // 3. SET_IMAGE を data URL で送信 (scale=1: 実寸として扱う)
     const setResp = await msgTab(tab.id, {
@@ -793,6 +816,8 @@ async function loadFromUpload(tab, scaleMode) {
 
     // 4. 適用成功後に設定を保存
     await chrome.storage.local.set({ [uploadSlotKey(slot)]: { ...prev, scaleMode } });
+    loadedUploadSlot = slot;
+    loadedFigmaUrl   = null;
 
     showStatus(mainStatus, 'オーバーレイを適用しました！ Alt+D でトグルできます。', true);
 
