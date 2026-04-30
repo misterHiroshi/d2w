@@ -87,7 +87,7 @@ const slotData = Object.fromEntries(SLOT_NUMS.map(i => [i, null])); // { dataUrl
 // ---------------------------------------------------------------------------
 let activeUrlSlot       = 1;
 let urlSlotsInitialized = false;
-const urlSlotData = Object.fromEntries(URL_SLOT_NUMS.map(i => [i, null])); // { url } or null
+const urlSlotData = Object.fromEntries(URL_SLOT_NUMS.map(i => [i, null])); // { url, imageUrl } or null
 
 // ---------------------------------------------------------------------------
 // 画面切替
@@ -225,14 +225,6 @@ async function transitionToMain(hasToken) {
   apiNoTokenWarn.hidden = !!hasToken;
   showScreen('main');
   await initUrlSlots();
-}
-
-async function loadMainScreenDefaults() {
-  const stored = await chrome.storage.local.get('last_figma_url');
-  if (stored.last_figma_url) {
-    urlInput.value = stored.last_figma_url;
-    await restoreUrlSettings(stored.last_figma_url);
-  }
 }
 
 async function restoreUrlSettings(figmaUrl) {

@@ -1077,6 +1077,7 @@ function initFigmaOverlay() {
 
     if (msg.type === 'CLEAR_IMAGE') {
       state.imageUrl = null;
+      state.figmaUrl = null;
       state.visible  = false;
       overlayImg.style.display = 'none';
       overlayImg.src = '';
