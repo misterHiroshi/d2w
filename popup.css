@@ -120,7 +120,7 @@ body {
   transition: border-color .15s;
   min-width: 0;
 }
-.input::placeholder { color: #4b5563; }
+.input::placeholder { color: #9ca3af; }
 .input:focus        { border-color: #1d4ed8; }
 .input.invalid      { border-color: #ef4444; }
 
