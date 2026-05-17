@@ -1,6 +1,36 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
+// Update notification
+// ---------------------------------------------------------------------------
+const LAST_NOTIFIED_KEY = 'lastNotifiedVersion';
+
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (details.reason !== chrome.runtime.OnInstalledReason.UPDATE) return;
+
+  const prev = details.previousVersion;
+  const curr = chrome.runtime.getManifest().version;
+  if (!prev) return;
+  if (!isMajorOrMinorUpdate(prev, curr)) return;
+
+  const { [LAST_NOTIFIED_KEY]: lastNotifiedVersion } = await chrome.storage.local.get(LAST_NOTIFIED_KEY);
+
+  if (lastNotifiedVersion !== curr) {
+    chrome.tabs.create({ url: chrome.runtime.getURL('updated.html') });
+    await chrome.storage.local.set({ [LAST_NOTIFIED_KEY]: curr });
+  } else {
+    chrome.action.setBadgeText({ text: 'NEW' });
+    chrome.action.setBadgeBackgroundColor({ color: '#FF3B30' });
+  }
+});
+
+function isMajorOrMinorUpdate(prev, curr) {
+  const prevParts = prev.split('.').map(Number);
+  const currParts = curr.split('.').map(Number);
+  return currParts[0] > prevParts[0] || (currParts[0] === prevParts[0] && currParts[1] > prevParts[1]);
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 const PAT_REGEX = /^figd_[A-Za-z0-9_-]{20,}$/;
@@ -206,6 +236,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             return;
           }
           await chrome.windows.update(windowId, { width: w });
+          sendResponse({ ok: true });
+          break;
+        }
+
+        case 'OPEN_HELP': {
+          chrome.tabs.create({ url: chrome.runtime.getURL('help.html') });
           sendResponse({ ok: true });
           break;
         }

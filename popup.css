@@ -56,6 +56,12 @@ body {
 }
 .header-icon-btn:hover { color: #ffffff; background: rgba(255,255,255,.15); }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* ============================================================
    Main layout
    ============================================================ */

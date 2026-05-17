@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D2W Diff — アップデート情報</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f5ff;
+      color: #1e3a5f;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 48px 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #bfdbfe;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(29,78,216,.10);
+      max-width: 560px;
+      width: 100%;
+      padding: 40px 40px 36px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .badge {
+      background: #1d4ed8;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      padding: 3px 10px;
+      border-radius: 99px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1e3a5f;
+    }
+    .version {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 28px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #1d4ed8;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    li {
+      display: flex;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    li::before {
+      content: '✓';
+      color: #1d4ed8;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #e0eaff;
+      margin: 24px 0;
+    }
+    .cta {
+      display: inline-block;
+      background: #1d4ed8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: background .15s;
+    }
+    .cta:hover { background: #1e40af; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <img src="icon48.png" width="36" height="36" alt="">
+      <h1>D2W Diff — アップデート</h1>
+    </div>
+
+    <p class="version" id="version-line">バージョン情報を取得中…</p>
+
+    <div class="section-title">新機能</div>
+    <ul>
+      <li>オーバーレイ画像をドラッグで直接移動できるようになりました</li>
+      <li>オフセット (px) セクションをデフォルトで展開表示に変更</li>
+    </ul>
+
+    <hr class="divider">
+
+    <button class="cta" id="cta-btn">使ってみる</button>
+  </div>
+
+  <script src="updated.js"></script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "D2W Diff",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Figmaデザインを任意のWebページにオーバーレイして比較するツール",
-  "permissions": ["storage", "unlimitedStorage", "scripting", "activeTab", "windows"],
+  "permissions": ["storage", "unlimitedStorage", "scripting", "activeTab", "windows", "tabs"],
   "host_permissions": ["https://api.figma.com/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none';"

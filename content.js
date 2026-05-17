@@ -556,6 +556,24 @@ function initFigmaOverlay() {
       text-align: center;
       letter-spacing: .02em;
     }
+    .drag-overlay-btn {
+      width: 100%;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #374151;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+      letter-spacing: .02em;
+    }
+    .drag-overlay-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+    .drag-overlay-btn.active {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+      color: #fff;
+    }
 
     /* ── Shortcut hint ── */
     .shortcut-hint {
@@ -563,6 +581,13 @@ function initFigmaOverlay() {
       color: #4b5563;
       text-align: center;
       letter-spacing: .03em;
+    }
+    .panel-version {
+      font-size: 9px;
+      color: #9ca3af;
+      text-align: center;
+      letter-spacing: .04em;
+      padding: 6px 0 2px;
     }
     kbd {
       background: #f0f5ff;
@@ -587,10 +612,13 @@ function initFigmaOverlay() {
   sourceBadge.textContent = 'API';
   titleEl.appendChild(sourceBadge);
   const headerBtns  = mkEl('div', { class: 'header-btns' });
+  const helpBtn     = mkEl('button', { class: 'header-btn', title: '使い方', type: 'button', 'aria-label': '使い方を開く' });
+  helpBtn.textContent = '?';
   const collapseBtn = mkEl('button', { class: 'header-btn', title: '折りたたむ / 展開する', type: 'button' });
   collapseBtn.textContent = '−';
   const closeBtn = mkEl('button', { class: 'header-btn header-btn-close', title: '閉じる', type: 'button', 'aria-label': '閉じる' });
   closeBtn.textContent = '×';
+  headerBtns.appendChild(helpBtn);
   headerBtns.appendChild(collapseBtn);
   headerBtns.appendChild(closeBtn);
   header.appendChild(titleEl);
@@ -678,11 +706,11 @@ function initFigmaOverlay() {
   const offsetHeader = mkEl('div', { class: 'offset-toggle' });
   offsetHeader.appendChild(document.createTextNode('オフセット (px)'));
   const offsetChevron = mkEl('span', { class: 'offset-chevron' });
-  offsetChevron.textContent = '＋';
+  offsetChevron.textContent = 'ー';
   offsetHeader.appendChild(offsetChevron);
   offsetGroup.appendChild(offsetHeader);
 
-  const offsetBody = mkEl('div', { class: 'offset-body' }); // デフォルト閉
+  const offsetBody = mkEl('div', { class: 'offset-body open' }); // デフォルト開
 
   const offsetRow = mkEl('div', { class: 'offset-row' });
 
@@ -732,6 +760,10 @@ function initFigmaOverlay() {
   dpadHint.textContent = 'Shift+クリックで 10px 移動';
   offsetBody.appendChild(dpadHint);
 
+  const dragOverlayBtn = mkEl('button', { class: 'drag-overlay-btn', type: 'button', title: 'オーバーレイをドラッグで移動' });
+  dragOverlayBtn.textContent = '✥  ドラッグ移動';
+  offsetBody.appendChild(dragOverlayBtn);
+
   offsetGroup.appendChild(offsetBody);
   body.appendChild(offsetGroup);
 
@@ -774,6 +806,10 @@ function initFigmaOverlay() {
   hint.appendChild(kbd);
   body.appendChild(hint);
 
+  const versionEl = mkEl('div', { class: 'panel-version' });
+  versionEl.textContent = `ver. ${chrome.runtime?.getManifest?.()?.version ?? ''}`;
+  body.appendChild(versionEl);
+
   panel.appendChild(body);
   shadow.appendChild(panel);
 
@@ -792,12 +828,19 @@ function initFigmaOverlay() {
     collapseBtn.textContent = collapsed ? '+' : '−';
   });
 
+  helpBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'OPEN_HELP' }, () => void chrome.runtime.lastError);
+  });
+
   closeBtn.addEventListener('click', () => {
+    overlayDrag = null;
     overlayImg.remove();
     shadowHost.remove();
     // document に直接追加したリスナーを解除（再注入時の蓄積を防ぐ）
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup',   onMouseUp);
+    document.removeEventListener('mousemove', onOverlayMouseMove);
+    document.removeEventListener('mouseup',   onOverlayMouseUp);
     document.removeEventListener('keydown',   onKeyDown);
     // ガード解除: 次回のポップアップ操作で再注入できるようにする
     delete window.__figmaOverlayDiffLoaded;
@@ -947,6 +990,46 @@ function initFigmaOverlay() {
     applyOverlay();
     saveSettings();
   });
+
+  // Overlay drag
+  let overlayDragMode = false;
+  let overlayDrag = null;
+
+  function setOverlayDragMode(enabled) {
+    overlayDragMode = enabled;
+    dragOverlayBtn.classList.toggle('active', enabled);
+    dragOverlayBtn.textContent = enabled ? '✥  ドラッグ中 (クリックで解除)' : '✥  ドラッグ移動';
+    overlayImg.style.pointerEvents = enabled ? 'auto' : 'none';
+    overlayImg.style.cursor        = enabled ? 'grab'  : '';
+  }
+
+  dragOverlayBtn.addEventListener('click', () => setOverlayDragMode(!overlayDragMode));
+
+  overlayImg.addEventListener('mousedown', (e) => {
+    if (!overlayDragMode || e.button !== 0) return;
+    overlayDrag = { startX: e.clientX, startY: e.clientY, origX: state.offsetX, origY: state.offsetY };
+    overlayImg.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  function onOverlayMouseMove(e) {
+    if (!overlayDrag) return;
+    state.offsetX = overlayDrag.origX + (e.clientX - overlayDrag.startX);
+    state.offsetY = overlayDrag.origY + (e.clientY - overlayDrag.startY);
+    offsetXInput.value = String(state.offsetX);
+    offsetYInput.value = String(state.offsetY);
+    applyOverlay();
+  }
+
+  function onOverlayMouseUp() {
+    if (!overlayDrag) return;
+    overlayDrag = null;
+    if (overlayDragMode) overlayImg.style.cursor = 'grab';
+    saveSettings();
+  }
+
+  document.addEventListener('mousemove', onOverlayMouseMove);
+  document.addEventListener('mouseup',   onOverlayMouseUp);
 
   // Follow scroll
   followScrollCheck.addEventListener('change', () => {

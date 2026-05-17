@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D2W Diff — 使い方</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f5ff;
+      color: #1e3a5f;
+      padding: 48px 16px 64px;
+    }
+    .wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .page-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1e3a5f;
+    }
+    .page-header p {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      padding: 28px 32px;
+      box-shadow: 0 4px 16px rgba(29,78,216,.07);
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #1d4ed8;
+      margin-bottom: 16px;
+    }
+    .steps {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #1d4ed8;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-body { flex: 1; }
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e3a5f;
+      margin-bottom: 3px;
+    }
+    .step-desc {
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    code {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      color: #1d4ed8;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #e0eaff;
+      margin: 18px 0;
+    }
+    .tip-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tip-list li {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    .tip-list li::before {
+      content: '💡';
+      flex-shrink: 0;
+    }
+    .shortcut-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #374151;
+    }
+    .kbd {
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-bottom: 2px solid #9ca3af;
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      color: #374151;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header class="page-header">
+      <img src="icon48.png" width="40" height="40" alt="">
+      <div>
+        <h1>D2W Diff — 使い方</h1>
+        <p>FigmaデザインをWebページにオーバーレイして比較するツール</p>
+      </div>
+    </header>
+
+    <!-- セットアップ -->
+    <div class="card">
+      <div class="card-title">セットアップ</div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Figma PAT を取得</div>
+            <div class="step-desc">Figma → アカウント設定 → <strong>Personal access tokens</strong> からトークンを発行。<code>figd_</code> で始まる文字列です。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">PAT を入力して保存</div>
+            <div class="step-desc">初回起動時のセットアップ画面にトークンを貼り付け、「保存して続ける」をクリック。ブラウザを閉じても保存したい場合は「ブラウザ終了後も保存する」にチェック。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Figma URL を入力</div>
+            <div class="step-desc">FigmaのデザインURLをコピーして貼り付け。<code>?node-id=</code> パラメータ付きのURLが必要です。最大5件まで保存できます。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">「オーバーレイを読み込む」をクリック</div>
+            <div class="step-desc">現在開いているWebページにFigmaデザインが半透明で重なります。</div>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <!-- 画像アップロード -->
+    <div class="card">
+      <div class="card-title">画像アップロードモード</div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">「画像アップロード」タブを選択</div>
+            <div class="step-desc">Figma APIなしで PNG / JPG / WebP 画像をオーバーレイできます。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">画像をドロップ or ファイル選択</div>
+            <div class="step-desc">最大5枚まで保存。スロットをクリックすると使用する画像を切り替えられます。</div>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <!-- オーバーレイ操作 -->
+    <div class="card">
+      <div class="card-title">オーバーレイ操作パネル</div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">不透明度</div>
+            <div class="step-desc">スライダーでオーバーレイの透過度を調整します。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">スケールモード</div>
+            <div class="step-desc"><code>実寸 (1:1)</code> / <code>幅に合わせる</code> / <code>高さに合わせる</code> の3種類。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">オフセット (px)</div>
+            <div class="step-desc">X / Y 方向のずれを数値入力または矢印ボタンで調整。<br>
+              「✥ ドラッグ移動」をONにするとオーバーレイを直接ドラッグで動かせます。<br>
+              <code>Shift</code> + 矢印ボタンで 10px 単位移動。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">スクロールに追従</div>
+            <div class="step-desc">ONにするとページスクロールと一緒にオーバーレイが動きます。</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">差分ハイライト</div>
+            <div class="step-desc">ブレンドモード <code>difference</code> でデザインと実装のズレを強調表示します。</div>
+          </div>
+        </li>
+      </ol>
+
+      <hr class="divider">
+
+      <div class="card-title">キーボードショートカット</div>
+      <ul class="shortcut-list">
+        <li class="shortcut-item">
+          <span>オーバーレイ 表示 / 非表示</span>
+          <span><kbd class="kbd">Alt</kbd> + <kbd class="kbd">Shift</kbd> + <kbd class="kbd">D</kbd></span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Tips -->
+    <div class="card">
+      <div class="card-title">Tips</div>
+      <ul class="tip-list">
+        <li>Figma URLは <code>node-id</code> パラメータ付きのリンクをコピーしてください（フレームを右クリック → リンクをコピー）。</li>
+        <li>取得画質を <code>2×</code> にすると Retina ディスプレイでもきれいに表示されます。</li>
+        <li>パネルはヘッダー部分をドラッグして移動できます。</li>
+        <li>設定（不透明度・オフセット等）はURLごとに自動保存されます。</li>
+      </ul>
+    </div>
+
+    <!-- FAQ -->
+    <div class="card">
+      <div class="card-title">よくある質問</div>
+      <div class="faq-list">
+
+        <details class="faq-item">
+          <summary class="faq-q">オーバーレイが表示されない</summary>
+          <div class="faq-a">
+            <p>以下を順番に確認してください。</p>
+            <ul>
+              <li>ポップアップの「ON — クリックで非表示」ボタンがON状態になっているか</li>
+              <li>Figma URLに <code>?node-id=</code> パラメータが含まれているか（フレームを選択した状態でURLをコピー）</li>
+              <li>取得画質を変更して再読み込みしてみる</li>
+              <li>ページを再読み込みしてから再度「オーバーレイを読み込む」をクリックする</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">「無効なFigma URLです」と表示される</summary>
+          <div class="faq-a">
+            <p>Figmaでフレームやコンポーネントを<strong>選択した状態</strong>でURLをコピーしてください。ブラウザのアドレスバーから直接コピーすると <code>node-id</code> が含まれない場合があります。</p>
+            <p>正しいURL例: <code>https://www.figma.com/design/XXXX/name?node-id=1-2</code></p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">「トークンが無効です」と表示される</summary>
+          <div class="faq-a">
+            <p>Figma PATの有効期限切れ、または誤ったトークンの可能性があります。ヘッダーの設定アイコン（⚙）から新しいトークンを再入力してください。トークンは Figma → アカウント設定 → Personal access tokens で再発行できます。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">PATとは何か、どこで取得できるか</summary>
+          <div class="faq-a">
+            <p>Personal Access Token の略で、Figma APIへのアクセスに使う認証情報です。</p>
+            <p>取得手順: Figmaにログイン → 左上のアイコン → <strong>Settings</strong> → <strong>Personal access tokens</strong> → <strong>Generate new token</strong></p>
+            <p>発行直後にしか全文表示されないため、すぐコピーして保存してください。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">ページを移動するたびにオーバーレイが消える</summary>
+          <div class="faq-a">
+            <p>仕様です。ページ遷移（URL変更）のたびにオーバーレイはリセットされます。再度ポップアップから「オーバーレイを読み込む」をクリックしてください。設定（不透明度・オフセット等）はURLごとに自動保存されているため、再読み込み時に引き継がれます。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">デザインと実装の位置がずれる</summary>
+          <div class="faq-a">
+            <p>オフセット (px) で X / Y を調整するか、「✥ ドラッグ移動」でオーバーレイを直接動かしてください。スケールモードを「幅に合わせる」にするとレスポンシブページに合わせやすくなります。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">特定のサイトでパネルが表示されない / 動かない</summary>
+          <div class="faq-a">
+            <p>一部のサイトでは Content Security Policy (CSP) により拡張機能の動作が制限されることがあります。また、Chrome の内部ページ（<code>chrome://</code>）や Chrome Web Store では拡張機能は動作しません。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">パネルが画面外に出て操作できなくなった</summary>
+          <div class="faq-a">
+            <p>拡張機能のアイコンをクリックしてポップアップを開き、「オーバーレイを読み込む」を再度実行するとパネルが初期位置にリセットされます。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">画像アップロードの保存上限を超えたい</summary>
+          <div class="faq-a">
+            <p>現在は最大5スロットです。不要な画像のスロットを削除してから新しい画像を追加してください。</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">トークンをブラウザ終了後も保持したくない</summary>
+          <div class="faq-a">
+            <p>セットアップ画面の「ブラウザ終了後も保存する」のチェックを外すと、セッション（タブを閉じるまで）のみの保持になります。設定を変更するにはヘッダーの設定アイコン（⚙）から再設定してください。</p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+
+  </div>
+
+  <style>
+    .faq-list { display: flex; flex-direction: column; gap: 2px; }
+    .faq-item {
+      border: 1px solid #e0eaff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .faq-item + .faq-item { margin-top: 6px; }
+    .faq-q {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 13px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e3a5f;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      background: #f8fbff;
+      transition: background .12s;
+    }
+    .faq-q::-webkit-details-marker { display: none; }
+    .faq-q::after {
+      content: '＋';
+      font-size: 16px;
+      color: #1d4ed8;
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+    .faq-item[open] .faq-q { background: #eff6ff; }
+    .faq-item[open] .faq-q::after { content: 'ー'; }
+    .faq-q:hover { background: #eff6ff; }
+    .faq-a {
+      padding: 14px 16px 16px;
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.7;
+      border-top: 1px solid #e0eaff;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .faq-a ul {
+      list-style: disc;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+  </style>
+</body>
+</html>

@@ -6,9 +6,10 @@
 const PAT_REGEX       = /^figd_[A-Za-z0-9_-]{20,}$/;
 const FIGMA_URL_REGEX = /^https:\/\/(www\.)?figma\.com\/(file|design|proto)\/[a-zA-Z0-9_-]+.*[?&]node-id=/;
 const SETTINGS_PREFIX  = 'overlay_settings_';
-const SLOT_COUNT       = 3;
+const SLOT_COUNT       = 5;
 const ACTIVE_SLOT_KEY  = 'active_upload_slot';
 const VIEW_MODE_KEY    = 'view_mode';
+const ACTIVE_SOURCE_KEY = 'active_source_tab';
 
 function uploadSlotKey(slot) { return SETTINGS_PREFIX + '__upload_slot_' + slot + '__'; }
 function imageSlotKey(slot)  { return 'image_slot_' + slot; }
@@ -16,7 +17,7 @@ function imageSlotKey(slot)  { return 'image_slot_' + slot; }
 const SLOT_NUMS = Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
 
 // Figma URL スロット
-const URL_SLOT_COUNT      = 3;
+const URL_SLOT_COUNT      = 5;
 const ACTIVE_URL_SLOT_KEY = 'active_figma_url_slot';
 function figmaUrlSlotKey(slot) { return 'figma_url_slot_' + slot; }
 const URL_SLOT_NUMS = Array.from({ length: URL_SLOT_COUNT }, (_, i) => i + 1);
@@ -30,6 +31,7 @@ const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 // ---------------------------------------------------------------------------
 // 共通
 const settingsBtn      = document.getElementById('settings-btn');
+const helpBtn          = document.getElementById('help-btn');
 
 // セットアップ画面
 const screenSetup      = document.getElementById('screen-setup');
@@ -115,6 +117,7 @@ function showScreen(name) {
 // ---------------------------------------------------------------------------
 function setActiveSource(src) {
   activeSource = src;
+  chrome.storage.local.set({ [ACTIVE_SOURCE_KEY]: src });
 
   tabApiBtn.classList.toggle('active', src === 'api');
   tabApiBtn.setAttribute('aria-selected', String(src === 'api'));
@@ -124,7 +127,6 @@ function setActiveSource(src) {
   panelApi.hidden    = src !== 'api';
   panelUpload.hidden = src !== 'upload';
 
-  // ステータスとエラーをリセット
   mainStatus.hidden = true;
   if (src === 'api') {
     clearFieldError(uploadError);
@@ -133,15 +135,19 @@ function setActiveSource(src) {
   }
 }
 
+async function activateUploadTab() {
+  setActiveSource('upload');
+  await initSlots();
+  await loadUploadSettings();
+}
+
 tabApiBtn.addEventListener('click', async () => {
   setActiveSource('api');
   await initUrlSlots();
 });
 
 tabUploadBtn.addEventListener('click', async () => {
-  setActiveSource('upload');
-  await initSlots();
-  await loadUploadSettings();
+  await activateUploadTab();
 });
 
 // ---------------------------------------------------------------------------
@@ -214,22 +220,24 @@ function setLoading(btn, on, label) {
 // 初期化
 // ---------------------------------------------------------------------------
 async function init() {
-  const hasResp = await msgBackground({ type: 'HAS_TOKEN' });
+  chrome.action.setBadgeText({ text: '' });
 
-  if (hasResp?.hasToken) {
-    await transitionToMain(true);
-  } else {
-    const pref = await chrome.storage.local.get('persist_token_pref');
-    persistToken.checked = !!pref.persist_token_pref;
-    showScreen('setup');
-  }
+  const hasResp = await msgBackground({ type: 'HAS_TOKEN' });
+  await transitionToMain(!!hasResp?.hasToken);
 }
 
 // メイン画面への遷移。hasToken=true なら警告を隠す、false なら表示する
 async function transitionToMain(hasToken) {
   apiNoTokenWarn.hidden = !!hasToken;
   showScreen('main');
-  await initUrlSlots();
+
+  const { [ACTIVE_SOURCE_KEY]: savedTab } = await chrome.storage.local.get(ACTIVE_SOURCE_KEY);
+  if (savedTab === 'upload') {
+    await activateUploadTab();
+  } else {
+    setActiveSource('api');
+    await initUrlSlots();
+  }
 }
 
 async function restoreUrlSettings(figmaUrl) {
@@ -653,6 +661,11 @@ setupSkipBtn.addEventListener('click', async () => {
 
 // ---------------------------------------------------------------------------
 // ヘッダーの設定ボタン → セットアップ画面に戻る
+// ---------------------------------------------------------------------------
+helpBtn.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('help.html') });
+});
+
 // ---------------------------------------------------------------------------
 settingsBtn.addEventListener('click', async () => {
   try {
